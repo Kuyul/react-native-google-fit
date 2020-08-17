@@ -102,8 +102,11 @@ public class StepHistory {
         DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
         dateFormat.setTimeZone(TimeZone.getDefault());
 
+        this.includeManuallyAdded = includeManuallyAdded;
+
         Log.i(TAG, "Range Start: " + dateFormat.format(startTime));
         Log.i(TAG, "Range End: " + dateFormat.format(endTime));
+        
 
         final DataReadRequest readRequest = new DataReadRequest.Builder().read(DataType.TYPE_STEP_COUNT_DELTA)
                 .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS).build();
