@@ -60,6 +60,8 @@ public class StepHistory {
 
     private static final String TAG = "RNGoogleFit";
 
+    private static boolean includeManuallyAdded = true;
+
     public StepHistory(ReactContext reactContext, GoogleFitManager googleFitManager){
         this.mReactContext = reactContext;
         this.googleFitManager = googleFitManager;
@@ -279,7 +281,7 @@ public class StepHistory {
                                 for (Bucket bucket : dataReadResponse.getBuckets()) {
                                     List<DataSet> dataSets = bucket.getDataSets();
                                     for (DataSet dataSet : dataSets) {
-                                        processDataSet(dataSet, steps);
+                                        processDataSet(dataSet, steps, StepHistory.includeManuallyAdded);
                                     }
                                 }
                             }
@@ -288,7 +290,7 @@ public class StepHistory {
                             if (dataReadResponse.getDataSets().size() > 0) {
                                 Log.i(TAG, "  +++ Number of returned DataSets: " + dataReadResponse.getDataSets().size());
                                 for (DataSet dataSet : dataReadResponse.getDataSets()) {
-                                    processDataSet(dataSet, steps);
+                                    processDataSet(dataSet, steps, StepHistory.includeManuallyAdded);
                                 }
                             }
 
@@ -312,7 +314,7 @@ public class StepHistory {
         }
     }
 
-    private void processDataSet(DataSet dataSet, WritableArray map) {
+    private void processDataSet(DataSet dataSet, WritableArray map, boolean includeManuallyAdded) {
         //Log.i(TAG, "Data returned for Data type: " + dataSet.getDataType().getName());
 
         DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
@@ -326,14 +328,15 @@ public class StepHistory {
             Log.i(TAG, "\t\tStart: " + dateFormat.format(dp.getStartTime(TimeUnit.MILLISECONDS)));
             Log.i(TAG, "\t\tEnd  : " + dateFormat.format(dp.getEndTime(TimeUnit.MILLISECONDS)));
 
-            for(Field field : dp.getDataType().getFields()) {
-                Log.i(TAG, "\t\tField: " + field.getName() +
-                        " Value: " + dp.getValue(field));
+            for (Field field : dp.getDataType().getFields()) {
+                if (!"user_input".equals(dp.getOriginalDataSource().getStreamName()) || includeManuallyAdded) {
+                    Log.i(TAG, "\t\tField: " + field.getName() + " Value: " + dp.getValue(field));
 
-                stepMap.putDouble("startDate", dp.getStartTime(TimeUnit.MILLISECONDS));
-                stepMap.putDouble("endDate", dp.getEndTime(TimeUnit.MILLISECONDS));
-                stepMap.putDouble("steps", dp.getValue(field).asInt());
-                map.pushMap(stepMap);
+                    stepMap.putDouble("startDate", dp.getStartTime(TimeUnit.MILLISECONDS));
+                    stepMap.putDouble("endDate", dp.getEndTime(TimeUnit.MILLISECONDS));
+                    stepMap.putDouble("steps", dp.getValue(field).asInt());
+                    map.pushMap(stepMap);
+                }
             }
         }
     }
