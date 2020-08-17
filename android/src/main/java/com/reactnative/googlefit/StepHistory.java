@@ -62,17 +62,21 @@ public class StepHistory {
 
     private static boolean includeManuallyAdded = true;
 
-    public StepHistory(ReactContext reactContext, GoogleFitManager googleFitManager){
+    public StepHistory(ReactContext reactContext, GoogleFitManager googleFitManager) {
         this.mReactContext = reactContext;
         this.googleFitManager = googleFitManager;
     }
 
     public TimeUnit processBucketUnit(String buckUnit) {
-        switch (buckUnit){
-            case "DAY": return TimeUnit.DAYS;
-            case "HOUR": return TimeUnit.HOURS;
-            case "MINUTE": return TimeUnit.MINUTES;
-            case "SECOND": return TimeUnit.SECONDS;
+        switch (buckUnit) {
+            case "DAY":
+                return TimeUnit.DAYS;
+            case "HOUR":
+                return TimeUnit.HOURS;
+            case "MINUTE":
+                return TimeUnit.MINUTES;
+            case "SECOND":
+                return TimeUnit.SECONDS;
         }
         return TimeUnit.HOURS;
     }
@@ -87,7 +91,7 @@ public class StepHistory {
 
     public TimeUnit getBucketUnit(ReadableMap configs) {
         TimeUnit bucketUnit = TimeUnit.HOURS;
-        if(null != configs && configs.hasKey("bucketUnit")) {
+        if (null != configs && configs.hasKey("bucketUnit")) {
             bucketUnit = this.processBucketUnit(configs.getString("bucketUnit"));
         }
         return bucketUnit;
@@ -101,21 +105,19 @@ public class StepHistory {
         Log.i(TAG, "Range Start: " + dateFormat.format(startTime));
         Log.i(TAG, "Range End: " + dateFormat.format(endTime));
 
-        final DataReadRequest readRequest = new DataReadRequest.Builder()
-            .read(DataType.TYPE_STEP_COUNT_DELTA)
-            .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
-            .build();
+        final DataReadRequest readRequest = new DataReadRequest.Builder().read(DataType.TYPE_STEP_COUNT_DELTA)
+                .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS).build();
 
-        DataReadResult dataReadResult =
-            Fitness.HistoryApi.readData(googleFitManager.getGoogleApiClient(), readRequest).await(1, TimeUnit.MINUTES);
+        DataReadResult dataReadResult = Fitness.HistoryApi.readData(googleFitManager.getGoogleApiClient(), readRequest)
+                .await(1, TimeUnit.MINUTES);
 
         DataSet stepData = dataReadResult.getDataSet(DataType.TYPE_STEP_COUNT_DELTA);
 
         int userInputSteps = 0;
 
         for (DataPoint dp : stepData.getDataPoints()) {
-            for(Field field : dp.getDataType().getFields()) {
-                if("user_input".equals(dp.getOriginalDataSource().getStreamName())){
+            for (Field field : dp.getDataType().getFields()) {
+                if ("user_input".equals(dp.getOriginalDataSource().getStreamName())) {
                     int steps = dp.getValue(field).asInt();
                     userInputSteps += steps;
                 }
@@ -125,17 +127,18 @@ public class StepHistory {
         successCallback.invoke(userInputSteps);
     }
 
-    public void aggregateDataByDate(long startTime, long endTime, ReadableMap configs, final Callback successCallback) {
+    public void aggregateDataByDate(long startTime, long endTime, ReadableMap configs, boolean includeManuallyAdded,
+            final Callback successCallback) {
 
         DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
         dateFormat.setTimeZone(TimeZone.getDefault());
 
-        //default bucket configs,
+        // default bucket configs,
         // Half-day resolution
         int bucketTime = 12;
         TimeUnit bucketUnit = TimeUnit.HOURS;
 
-        if(null != configs) {
+        if (null != configs) {
             bucketTime = this.getBucketTime(configs);
             bucketUnit = this.getBucketUnit(configs);
         }
@@ -148,48 +151,30 @@ public class StepHistory {
         List<DataSource> dataSources = new ArrayList<>();
 
         // GoogleFit Apps
-        dataSources.add(
-            new DataSource.Builder()
-                .setAppPackageName("com.google.android.gms")
-                .setDataType(DataType.TYPE_STEP_COUNT_DELTA)
-                .setType(DataSource.TYPE_DERIVED)
-                .setStreamName("estimated_steps")
-                .build()
-        );
+        dataSources.add(new DataSource.Builder().setAppPackageName("com.google.android.gms")
+                .setDataType(DataType.TYPE_STEP_COUNT_DELTA).setType(DataSource.TYPE_DERIVED)
+                .setStreamName("estimated_steps").build());
 
         // GoogleFit Apps
-        dataSources.add(
-            new DataSource.Builder()
-                .setAppPackageName("com.google.android.gms")
-                .setDataType(DataType.TYPE_STEP_COUNT_DELTA)
-                .setType(DataSource.TYPE_DERIVED)
-                .setStreamName("merge_step_deltas")
-                .build()
-        );
+        dataSources.add(new DataSource.Builder().setAppPackageName("com.google.android.gms")
+                .setDataType(DataType.TYPE_STEP_COUNT_DELTA).setType(DataSource.TYPE_DERIVED)
+                .setStreamName("merge_step_deltas").build());
 
         // Mi Fit
-        dataSources.add(
-            new DataSource.Builder()
-                .setAppPackageName("com.xiaomi.hm.health")
-                .setDataType(DataType.TYPE_STEP_COUNT_DELTA)
-                .setType(DataSource.TYPE_RAW)
-                .setStreamName("")
-                .build()
-        );
+        dataSources.add(new DataSource.Builder().setAppPackageName("com.xiaomi.hm.health")
+                .setDataType(DataType.TYPE_STEP_COUNT_DELTA).setType(DataSource.TYPE_RAW).setStreamName("").build());
 
         /*
-        DataSourcesRequest sourceRequest = new DataSourcesRequest.Builder()
-                .setDataTypes(DataType.TYPE_STEP_COUNT_DELTA,
-                    DataType.TYPE_STEP_COUNT_CUMULATIVE,
-                    DataType.AGGREGATE_STEP_COUNT_DELTA
-                    )
-                //.setDataSourceTypes(DataSource.TYPE_DERIVED)
-                .build();
-        DataSourcesResult dataSourcesResult =
-           Fitness.SensorsApi.findDataSources(googleFitManager.getGoogleApiClient(), sourceRequest).await(1, TimeUnit.MINUTES);
-
-        dataSources.addAll( dataSourcesResult.getDataSources() );
-        */
+         * DataSourcesRequest sourceRequest = new DataSourcesRequest.Builder()
+         * .setDataTypes(DataType.TYPE_STEP_COUNT_DELTA,
+         * DataType.TYPE_STEP_COUNT_CUMULATIVE, DataType.AGGREGATE_STEP_COUNT_DELTA )
+         * //.setDataSourceTypes(DataSource.TYPE_DERIVED) .build(); DataSourcesResult
+         * dataSourcesResult =
+         * Fitness.SensorsApi.findDataSources(googleFitManager.getGoogleApiClient(),
+         * sourceRequest).await(1, TimeUnit.MINUTES);
+         * 
+         * dataSources.addAll( dataSourcesResult.getDataSources() );
+         */
 
         final AtomicInteger dataSourcesToLoad = new AtomicInteger(dataSources.size());
 
@@ -223,9 +208,10 @@ public class StepHistory {
             if (device != null) {
                 source.putString("deviceManufacturer", device.getManufacturer());
                 source.putString("deviceModel", device.getModel());
-                switch(device.getType()) {
+                switch (device.getType()) {
                     case Device.TYPE_CHEST_STRAP:
-                        source.putString("deviceType", "chestStrap"); break;
+                        source.putString("deviceType", "chestStrap");
+                        break;
                 }
             } else {
                 source.putNull("deviceManufacturer");
@@ -233,7 +219,7 @@ public class StepHistory {
                 source.putNull("deviceType");
             }
 
-            //if (!DataType.TYPE_STEP_COUNT_DELTA.equals(type)) continue;
+            // if (!DataType.TYPE_STEP_COUNT_DELTA.equals(type)) continue;
             DataReadRequest readRequest;
 
             List<DataType> aggregateDataTypeList = DataType.getAggregatesForInput(type);
@@ -241,41 +227,33 @@ public class StepHistory {
                 DataType aggregateType = aggregateDataTypeList.get(0);
                 Log.i(TAG, "  + Aggregate : " + aggregateType);
 
-                //Check how many steps were walked and recorded in specified days
-                readRequest = new DataReadRequest.Builder()
-                        .aggregate(dataSource
-                            //DataType.TYPE_STEP_COUNT_DELTA
-                            ,
-                            //DataType.AGGREGATE_STEP_COUNT_DELTA
-                            aggregateType)
-                        .bucketByTime(bucketTime, bucketUnit)
-                        .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
-                        .build();
+                // Check how many steps were walked and recorded in specified days
+                readRequest = new DataReadRequest.Builder().aggregate(dataSource
+                // DataType.TYPE_STEP_COUNT_DELTA
+                        ,
+                        // DataType.AGGREGATE_STEP_COUNT_DELTA
+                        aggregateType).bucketByTime(bucketTime, bucketUnit)
+                        .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS).build();
             } else {
-                readRequest = new DataReadRequest.Builder()
-                        .read(dataSource)
-                        //.bucketByTime(12, TimeUnit.HOURS) // Half-day resolution
-                        .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
-                        .build();
+                readRequest = new DataReadRequest.Builder().read(dataSource)
+                        // .bucketByTime(12, TimeUnit.HOURS) // Half-day resolution
+                        .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS).build();
             }
 
-            GoogleSignInOptionsExtension fitnessOptions =
-                    FitnessOptions.builder()
-                            .addDataType(DataType.TYPE_STEP_COUNT_DELTA, FitnessOptions.ACCESS_READ)
-                            .build();
+            GoogleSignInOptionsExtension fitnessOptions = FitnessOptions.builder()
+                    .addDataType(DataType.TYPE_STEP_COUNT_DELTA, FitnessOptions.ACCESS_READ).build();
 
-            GoogleSignInAccount googleSignInAccount =
-                    GoogleSignIn.getAccountForExtension(this.mReactContext, fitnessOptions);
+            GoogleSignInAccount googleSignInAccount = GoogleSignIn.getAccountForExtension(this.mReactContext,
+                    fitnessOptions);
 
-            Fitness.getHistoryClient(this.mReactContext, googleSignInAccount)
-                .readData(readRequest)
+            Fitness.getHistoryClient(this.mReactContext, googleSignInAccount).readData(readRequest)
                     .addOnSuccessListener(new OnSuccessListener<DataReadResponse>() {
                         @Override
                         public void onSuccess(DataReadResponse dataReadResponse) {
                             Log.i(TAG, "onSuccess()");
                             WritableArray steps = Arguments.createArray();
 
-                            //Used for aggregated data
+                            // Used for aggregated data
                             if (dataReadResponse.getBuckets().size() > 0) {
                                 Log.i(TAG, "  +++ Number of buckets: " + dataReadResponse.getBuckets().size());
                                 for (Bucket bucket : dataReadResponse.getBuckets()) {
@@ -286,9 +264,10 @@ public class StepHistory {
                                 }
                             }
 
-                            //Used for non-aggregated data
+                            // Used for non-aggregated data
                             if (dataReadResponse.getDataSets().size() > 0) {
-                                Log.i(TAG, "  +++ Number of returned DataSets: " + dataReadResponse.getDataSets().size());
+                                Log.i(TAG,
+                                        "  +++ Number of returned DataSets: " + dataReadResponse.getDataSets().size());
                                 for (DataSet dataSet : dataReadResponse.getDataSets()) {
                                     processDataSet(dataSet, steps, StepHistory.includeManuallyAdded);
                                 }
@@ -308,14 +287,15 @@ public class StepHistory {
                         public void onFailure(@NonNull Exception e) {
                             Log.i(TAG, "onFailure()");
                             Log.i(TAG, "Error" + e);
-                    }
-            });
+                        }
+                    });
 
         }
     }
 
     private void processDataSet(DataSet dataSet, WritableArray map, boolean includeManuallyAdded) {
-        //Log.i(TAG, "Data returned for Data type: " + dataSet.getDataType().getName());
+        // Log.i(TAG, "Data returned for Data type: " +
+        // dataSet.getDataType().getName());
 
         DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
         dateFormat.setTimeZone(TimeZone.getDefault());
@@ -341,13 +321,8 @@ public class StepHistory {
         }
     }
 
-
-    private void sendEvent(ReactContext reactContext,
-                           String eventName,
-                           @Nullable WritableArray params) {
-        reactContext
-                .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
-                .emit(eventName, params);
+    private void sendEvent(ReactContext reactContext, String eventName, @Nullable WritableArray params) {
+        reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit(eventName, params);
     }
 
 }
